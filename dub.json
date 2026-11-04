@@ -1,0 +1,26 @@
+{
+	"description": "Windows 后台程序服务守护工具。",
+	"mainSourceFile": "source/app.d",
+	"configurations": [
+		{
+			"name": "application",
+			"targetType": "executable",
+			"sourceFiles": ["source/app.d"],
+			"sourcePaths": ["source"]
+		},
+		{
+			"name": "unittest",
+			"targetType": "executable",
+			"sourceFiles": ["source/app.d"],
+			"targetName": "dservice-unittest",
+			"mainSourceFile": "source/app.d",
+			"sourcePaths": ["source", "source-test"]
+		}
+	],
+	"license": "MIT",
+	"authors": [
+		"rocex"
+	],
+	"copyright": "Copyright © 2026, rocex",
+	"name": "dservice"
+}

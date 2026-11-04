@@ -1,0 +1,40 @@
+root = true
+
+[*]
+charset = utf-8
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+max_line_length = 160
+tab_width = 4
+trim_trailing_whitespace = true
+
+[*.{js,jsx,mjs,ts,css,html}]
+end_of_line = lf
+
+[*.bat]
+end_of_line = crlf
+
+[*.d]
+# https://github.com/dlang-community/dfmt
+dfmt_align_switch_statements = false
+dfmt_brace_style = allman
+dfmt_compact_labeled_statements = true
+dfmt_keep_line_breaks = false
+dfmt_outdent_attributes = true
+dfmt_outdent_labels = true
+dfmt_reflow_property_chains = conditional_newline_indent
+dfmt_selective_import_space = false
+dfmt_single_indent = true
+dfmt_single_template_constraint_indent = true
+dfmt_soft_max_line_length = 160
+dfmt_space_after_cast = false
+dfmt_space_after_keywords = false
+dfmt_space_before_aa_colon = false
+dfmt_space_before_function_parameters = false
+dfmt_split_operator_at_line_end = false
+dfmt_template_constraint_style = conditional_newline_indent
+
+[*.md]
+# 保留 Markdown 行尾双空格的换行语义。
+trim_trailing_whitespace = false
