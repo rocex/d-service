@@ -1,6 +1,11 @@
 {
+    "name": "dservice",
+    "license": "MIT",
+	"authors": [ "rocex" ],
+	"copyright": "Copyright © 2026, rocex",
 	"description": "Windows 后台程序服务守护工具。",
 	"mainSourceFile": "source/app.d",
+    "targetPath": ".dub",
 	"configurations": [
 		{
 			"name": "application",
@@ -10,17 +15,12 @@
 		},
 		{
 			"name": "unittest",
+			"preRunCommands": ["dub build --config=application --build=release"],
 			"targetType": "executable",
 			"sourceFiles": ["source/app.d"],
 			"targetName": "dservice-unittest",
 			"mainSourceFile": "source/app.d",
 			"sourcePaths": ["source", "source-test"]
 		}
-	],
-	"license": "MIT",
-	"authors": [
-		"rocex"
-	],
-	"copyright": "Copyright © 2026, rocex",
-	"name": "dservice"
+	]
 }
