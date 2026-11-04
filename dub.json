@@ -15,7 +15,8 @@
 		},
 		{
 			"name": "unittest",
-			"preRunCommands": ["dub build --config=application --build=release"],
+			"preRunCommands-windows-x86_mscoff": ["dub build --config=application --build=release --compiler=\"$DC\" --arch=x86_mscoff"],
+			"preRunCommands-windows-x86_64": ["dub build --config=application --build=release --compiler=\"$DC\" --arch=x86_64"],
 			"targetType": "executable",
 			"sourceFiles": ["source/app.d"],
 			"targetName": "dservice-unittest",

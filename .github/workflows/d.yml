@@ -1,4 +1,4 @@
-name: Windows 编译、测试与发布
+name: Windows build, test and release
 
 on:
   push:
@@ -12,51 +12,95 @@ permissions:
 
 jobs:
   build:
-    name: 编译与测试
+    name: ${{ matrix.compiler }} / Windows ${{ matrix.arch }}
     runs-on: windows-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: dmd
+            toolchain: dmd-latest
+            arch: x86
+            dub-arch: x86_mscoff
+          - compiler: dmd
+            toolchain: dmd-latest
+            arch: x64
+            dub-arch: x86_64
+          - compiler: ldc2
+            toolchain: ldc-latest
+            arch: x86
+            dub-arch: x86_mscoff
+          - compiler: ldc2
+            toolchain: ldc-latest
+            arch: x64
+            dub-arch: x86_64
 
     steps:
-      - name: 检出触发事件对应的代码
+      - name: Check out source
         uses: actions/checkout@v7
 
-      - name: 安装 LDC 工具链
+      - name: Install latest stable compiler
         uses: dlang-community/setup-dlang@4c99aa991ce7d19dd3064de0a4f2f6b2f152e2d7
         with:
-          compiler: ldc-latest
+          compiler: ${{ matrix.toolchain }}
 
-      - name: 编译发布版本
-        run: dub build --config=application --build=release --compiler="$env:DC" --arch=x86_64
+      - name: Record toolchain versions
+        run: |
+          & $env:DC --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dub --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --version
 
-      - name: 执行全部单元与进程测试
-        run: dub test --compiler="$env:DC" --arch=x86_64
+      - name: Build release executable
+        run: dub build --config=application --build=release --compiler="$env:DC" --arch=${{ matrix.dub-arch }}
 
-      - name: 整理发布文件
+      - name: Run unit and process tests
+        run: dub test --compiler="$env:DC" --arch=${{ matrix.dub-arch }}
+
+      - name: Stage package and verify PE architecture
+        env:
+          PACKAGE_ARCH: ${{ matrix.arch }}
         run: >-
-          node -e "const fs = require('node:fs'); fs.mkdirSync('dist', { recursive: true });
+          node -e "const fs = require('node:fs');
+          const expectedMachine = process.env.PACKAGE_ARCH === 'x86' ? 0x14c : 0x8664;
+          for (const name of ['dservice', 'dservice-unittest']) {
+          const image = fs.readFileSync('.dub/' + name + '.exe');
+          const peOffset = image.readUInt32LE(0x3c);
+          if (image.toString('ascii', peOffset, peOffset + 4) !== 'PE\0\0' || image.readUInt16LE(peOffset + 4) !== expectedMachine)
+          throw new Error('Unexpected PE architecture: ' + name); }
+          fs.mkdirSync('dist', { recursive: true });
           for (const [source, name] of [['.dub/dservice.exe', 'dservice.exe'], ['dservice.ini.example', 'dservice.ini.example'], ['README.md', 'README.md']])
           fs.copyFileSync(source, 'dist/' + name);"
 
-      - name: 上传 Windows x64 构建产物
+      - name: Create ZIP package
+        run: |
+          & 'C:\Program Files\7-Zip\7z.exe' a -tzip 'dservice-windows-${{ matrix.arch }}.zip' ./dist/dservice.exe ./dist/dservice.ini.example ./dist/README.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'C:\Program Files\7-Zip\7z.exe' t 'dservice-windows-${{ matrix.arch }}.zip'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: dservice-windows-x64
-          path: dist/*
+          name: dservice-${{ matrix.compiler }}-windows-${{ matrix.arch }}
+          path: dservice-windows-${{ matrix.arch }}.zip
           if-no-files-found: error
           retention-days: 30
 
-      - name: 保留测试日志（包括失败时）
+      - name: Upload test logs even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dservice-test-logs
+          name: dservice-test-logs-${{ matrix.compiler }}-${{ matrix.arch }}
           path: .dub/*.log
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
 
   release:
-    name: 发布 release 前缀标签
+    name: Publish release tag using LDC2 packages
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/release')
     runs-on: windows-latest
@@ -65,18 +109,20 @@ jobs:
       contents: write
 
     steps:
-      - name: 下载本次标签编译并测试通过的产物
+      - name: Download tested LDC2 packages only
         uses: actions/download-artifact@v4
         with:
-          name: dservice-windows-x64
-          path: dist
+          pattern: dservice-ldc2-windows-*
+          path: release-packages
+          merge-multiple: false
 
-      - name: 创建 GitHub Release 并上传文件
+      - name: Create GitHub Release and upload both architectures
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: >-
-          gh release create "$env:RELEASE_TAG" --verify-tag --generate-notes
-          --title "$env:RELEASE_TAG"
-          dist/dservice.exe dist/dservice.ini.example dist/README.md
+        run: |
+          $packages = @(Get-ChildItem 'release-packages/dservice-ldc2-windows-*/dservice-windows-*.zip' -File)
+          if ($packages.Count -ne 2) { throw 'Expected exactly two LDC2 ZIP packages.' }
+          gh release create "$env:RELEASE_TAG" --verify-tag --generate-notes --title "$env:RELEASE_TAG" @($packages.FullName)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

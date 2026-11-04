@@ -17,7 +17,16 @@ dub test
 
 两个 demo 按精确文件名识别，在运行任何 unittest 前进入持续等待，不会递归执行测试。另生成 `.dub/dservice-demo-exit.exe`，按独立文件名识别后立即退出，用于验证短命程序不会无限重启；它同样不执行 unittest。仅需正式程序时仍可执行 `dub build --build=release`。
 
-`unittest` 配置的 `preRunCommands` 会在**每次运行测试前**执行 `dub build --config=application --build=release`，包括 unittest 构建命中缓存的情况；DUB 可复用发布构建缓存并恢复正式 `.dub/dservice.exe`，测试守护副本始终来自正式程序而不是 unittest 入口。
+`unittest` 配置按 Windows 架构选择 `preRunCommands-windows-x86_mscoff` 或 `preRunCommands-windows-x86_64`，在**每次运行测试前**执行正式发布构建，包括 unittest 构建命中缓存的情况。命令通过 DUB 的 `$DC` 变量明确传入当前编译器，并分别传入 `--arch=x86_mscoff` 或 `--arch=x86_64`，保证正式程序和测试程序工具链、架构一致。DUB 可复用发布构建缓存并恢复缺失的 `.dub/dservice.exe`，测试守护副本始终来自正式程序而不是 unittest 入口；本地测试不需要 Node.js 或额外辅助脚本。
+
+四组测试命令如下，请顺序执行，避免争用同一个 `.dub` 目录。Windows x86 使用 MSVC 兼容的 `x86_mscoff`，x64 使用 `x86_64`：
+
+```powershell
+dub test --compiler=dmd --arch=x86_mscoff
+dub test --compiler=dmd --arch=x86_64
+dub test --compiler=ldc2 --arch=x86_mscoff
+dub test --compiler=ldc2 --arch=x86_64
+```
 
 进程测试直接运行 `.dub` 中生成的两个 demo，不安装或操作系统服务。测试守护使用 `.dub/守护 test-<进程号>-<计时值>.exe`，其同名 `.ini` 和 `.log` 均在 `.dub` 中，控制台会打印本次日志路径。测试结束保留这些文件以供检查，不覆盖手工使用的 `dservice.ini` 和 `dservice.log`。守护记录和测试步骤合并写入同一个 `.log`，使用固定三位毫秒时间戳以及 `[守护]`、`[测试]`、`[日志]` 等两字日志头，不再生成 `.events.log`；已有历史文件不删除。
 
@@ -48,10 +57,10 @@ app2=dservice-demo-b.exe
 
 工作流位于 `.github/workflows/d.yml`：
 
-- 推送任意分支或 tag、提交 Pull Request，以及手动触发时，执行 Windows x64 发布构建和全部 `dub test`。
-- 编译及测试成功后，在该次 Actions 运行页面的 **Artifacts** 中下载 `dservice-windows-x64`，包含 `dservice.exe`、`dservice.ini.example` 和 `README.md`。产物保留 30 天。
-- 测试日志单独上传为 `dservice-test-logs`，即使测试失败也尝试保留已有日志，保留 14 天。
-- 推送名称以 `release` 开头的 tag（例如 `release-1.0.0`）时，检出该 tag 对应的代码；构建和测试成功后，使用同一次构建的产物创建同名 GitHub Release，并上传上述三个文件。其他 tag 只编译测试，不发布。
+- 推送 `main` 分支或任意 tag、提交 Pull Request，以及手动触发时，使用最新稳定版 DMD 和 LDC2，分别执行 Windows x86、x64 发布构建及全部 `dub test`，共四组独立矩阵任务。记录实际编译器和 DUB 版本；某组失败不会取消其余组。
+- 各组编译及测试成功后，在该次 Actions 运行页面的 **Artifacts** 中下载 `dservice-dmd-windows-x86`、`dservice-dmd-windows-x64`、`dservice-ldc2-windows-x86` 或 `dservice-ldc2-windows-x64`，保留 30 天。每份 artifact 包含对应架构的 `dservice-windows-x86.zip` 或 `dservice-windows-x64.zip`；ZIP 内保留 `dservice.exe`、`dservice.ini.example` 和 `README.md`，不改名 exe，以维持同名配置约定。打包前核对正式程序和测试程序的 PE 架构，打包后校验 ZIP。
+- 测试日志分别上传为 `dservice-test-logs-<compiler>-<arch>`，即使测试失败也尝试保留已有日志，保留 14 天。工作流名称、步骤及自写 CI 提示以英文为主，程序和测试本身的原始中文日志保持不变。
+- 推送名称以 `release` 开头的 tag（例如 `release-1.0.0`）时，检出该 tag 对应的代码；必须等四组矩阵全部成功，才创建同名 GitHub Release。发布任务只下载本次运行的 LDC2 x86、x64 artifact 到独立目录，上传 `dservice-windows-x86.zip` 和 `dservice-windows-x64.zip` 两个唯一命名的资产，不发布 DMD 产物，也不重新编译。其他 tag 只编译测试，不发布。
 - 发布任务单独申请 `contents: write`，普通构建任务只读。若仓库或组织策略限制 GitHub Actions 创建 Release，需要由管理员允许该权限。已存在的同名 Release 不会被自动覆盖。
 
 发布包不包含测试 demo 或本机实际配置。部署时把 `dservice.ini.example` 复制为 `dservice.ini` 并填写真实程序路径。工作流仅在提交并推送到 GitHub 后运行，本地修改不会自动发布。
