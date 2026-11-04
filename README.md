@@ -17,14 +17,14 @@ dub test
 
 两个 demo 按精确文件名识别，在运行任何 unittest 前进入持续等待，不会递归执行测试。另生成 `.dub/dservice-demo-exit.exe`，按独立文件名识别后立即退出，用于验证短命程序不会无限重启；它同样不执行 unittest。仅需正式程序时仍可执行 `dub build --build=release`。
 
-`unittest` 配置按 Windows 架构选择 `preRunCommands-windows-x86_mscoff` 或 `preRunCommands-windows-x86_64`，在**每次运行测试前**执行正式发布构建，包括 unittest 构建命中缓存的情况。命令通过 DUB 的 `$DC` 变量明确传入当前编译器，并分别传入 `--arch=x86_mscoff` 或 `--arch=x86_64`，保证正式程序和测试程序工具链、架构一致。DUB 可复用发布构建缓存并恢复缺失的 `.dub/dservice.exe`，测试守护副本始终来自正式程序而不是 unittest 入口；本地测试不需要 Node.js 或额外辅助脚本。
+`unittest` 配置按 Windows 架构选择 `preRunCommands-windows-x86_mscoff` 或 `preRunCommands-windows-x86_64`，在**每次运行测试前**执行正式发布构建，包括 unittest 构建命中缓存的情况。命令通过 DUB 的 `$DC` 变量明确传入当前编译器，并分别传入 `--arch=x86` 或 `--arch=x86_64`，保证正式程序和测试程序工具链、架构一致。DUB 可复用发布构建缓存并恢复缺失的 `.dub/dservice.exe`，测试守护副本始终来自正式程序而不是 unittest 入口；本地测试不需要 Node.js 或额外辅助脚本。
 
-四组测试命令如下，请顺序执行，避免争用同一个 `.dub` 目录。Windows x86 使用 MSVC 兼容的 `x86_mscoff`，x64 使用 `x86_64`：
+四组测试命令如下，请顺序执行，避免争用同一个 `.dub` 目录。Windows x86 命令使用 `x86` 简写，当前 DUB 会将其规范化为 MSVC 兼容的 `x86_mscoff` 平台，因此配置键保留该名称；x64 使用 `x86_64`：
 
 ```powershell
-dub test --compiler=dmd --arch=x86_mscoff
+dub test --compiler=dmd --arch=x86
 dub test --compiler=dmd --arch=x86_64
-dub test --compiler=ldc2 --arch=x86_mscoff
+dub test --compiler=ldc2 --arch=x86
 dub test --compiler=ldc2 --arch=x86_64
 ```
 

@@ -22,7 +22,7 @@ jobs:
           - compiler: dmd
             toolchain: dmd-latest
             arch: x86
-            dub-arch: x86_mscoff
+            dub-arch: x86
           - compiler: dmd
             toolchain: dmd-latest
             arch: x64
@@ -30,7 +30,7 @@ jobs:
           - compiler: ldc2
             toolchain: ldc-latest
             arch: x86
-            dub-arch: x86_mscoff
+            dub-arch: x86
           - compiler: ldc2
             toolchain: ldc-latest
             arch: x64
